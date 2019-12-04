@@ -5,6 +5,7 @@ from constants import *
 import os
 import io
 import csv
+
 import pydicom
 
 class PET_CT(Dataset):
