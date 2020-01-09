@@ -10,6 +10,7 @@ def get_csv():
         reader = csv.reader(f, delimiter=" ", quotechar="|")
 
         for i, row in enumerate(reader):
+            row[0] = popravi_sumnike(row[0])
             if i == 0:
                 keys = row[0].split(";")
             else:

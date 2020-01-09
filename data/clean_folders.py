@@ -15,8 +15,8 @@ for root, dirs, files in os.walk(images_path_sick):
         if "CT" in dir:
             CT_paths.append(os.path.join(root, dir))
 
-#print(len(CT_paths))
-#print(len(PET_paths))
+# print(len(CT_paths))
+# print(len(PET_paths))
 
 csv = get_csv()
 
@@ -40,6 +40,7 @@ for p in csv:
                 if PET not in csv[p]['pets']:
                     csv[p]['pets'].append(PET)
 
+
 def csv_with_fnames():
     return csv
 
@@ -48,22 +49,24 @@ def get_flist_from_folder(folder: str) -> list:
     otpt = list()
     for root, dirs, files in os.walk(folder):
         for f in files:
-            ap=True
+            ap = True
             fpath = os.path.join(root, f)
-            if len(otpt)==0:otpt.append(fpath)
+            if len(otpt) == 0: otpt.append(fpath)
             for f in otpt:
                 if fpath[-9:] in f:  # fpath ends in -0001.dcm --> so it removes duplicates...
-                    ap=False
+                    ap = False
             if ap:
                 otpt.append(fpath)
 
-
     return otpt
 
-print(get_flist_from_folder('C:/Users/LeonE/Desktop/PREŠERNOVA/AI FCH/DICOM_all4mm\\Kamensek_Andrej\\Pet_Choline_Obscitnica_2Fazalm_(Adult) - 2\\4_mm_6')
-      )
 
-x = flist_to_array(get_flist_from_folder('C:/Users/LeonE/Desktop/PREŠERNOVA/AI FCH/DICOM_all4mm\\Kamensek_Andrej\\Pet_Choline_Obscitnica_2Fazalm_(Adult) - 2\\AC_CT_Obscitnica_2'))
+#print(get_flist_from_folder(
+#    'C:/Users/LeonE/Desktop/PREŠERNOVA/AI FCH/DICOM_all4mm\\Kamensek_Andrej\\Pet_Choline_Obscitnica_2Fazalm_(Adult) - 2\\4_mm_6')
+#      )
+
+"""x = flist_to_array(get_flist_from_folder(
+    'C:/Users/LeonE/Desktop/PREŠERNOVA/AI FCH/DICOM_all4mm\\Kamensek_Andrej\\Pet_Choline_Obscitnica_2Fazalm_(Adult) - 2\\AC_CT_Obscitnica_2'))
 import matplotlib.pyplot as plt
 
 plt.hist(x.ravel(), bins=20)
@@ -73,16 +76,30 @@ plt.show()
 for p in csv:
     patient = csv[p]
     if patient['cts'] != list(): cnt += 1
-    if patient['pets'] != list(): cnt_ += 1
-    #print(patient['priimek'], patient['ime'])
-    #print(patient['cts'])
-    #print(patient['pets'])
+    if patient['pets'] != list(): cnt_ += 1"""
+    # print(patient['priimek'], patient['ime'])
+    # print(patient['cts'])
+    # print(patient['pets'])
 
+# print(cnt)
+# print(cnt_)
 
+if __name__=="__main__":
+    printed = list()
+    new = list()
+    for pat in csv:
+        if csv[pat]['cts'] == [] and pat not in printed:
+            #print("missing CTS")
+            print(csv[pat])
+            new.append(csv[pat])
+            printed.append(pat)
+        elif csv[pat]['pets']==[]and pat not in printed:
+            #print("missing pets:")
+            print(csv[pat])
+            new.append(csv[pat])
+            printed.append(pat)
 
+    import json
 
-
-#print(cnt)
-#print(cnt_)
-
-# print(CT_paths[0])
+    with open("missing.json", "w") as f:
+        json.dump(new, f)
