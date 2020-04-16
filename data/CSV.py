@@ -2,6 +2,110 @@ import csv
 from constants import *
 import io
 from data.sumniki import popravi_sumnike
+from data.dicom_helper import match_healthy_pet_cts
+import numpy as np
+import os
+import re
+import SimpleITK as sitk
+import pydicom
+
+
+def convert_folder_to_array(sick_directory: str) -> np.ndarray:
+    # depth = len(os.listdir(sick_directory))
+    # blank = np.zeros()
+    reader = sitk.ImageSeriesReader()
+    dicom_names = reader.GetGDCMSeriesFileNames(sick_directory)
+    reader.SetFileNames(dicom_names)
+    image = reader.Execute()
+    arr = sitk.GetArrayFromImage(image)
+    arr = np.array(arr)
+    return arr
+
+
+def get_csv_new():
+    entries = list()
+    ind = list()
+    with open(indices, "r") as f:
+        for line in f.readlines(): ind.append(line[:-1])
+
+    # print(ind)
+    with io.open(csv_path, newline="", encoding="utf-8") as f:  # utf encoding due to čšđžć
+        reader = csv.reader(f, quotechar="|")  # delimiter=" "
+
+        for row in reader:
+            entry = dict()
+            for idr, el in enumerate(row):
+                # print(el,idr)
+                if ind[idr] in entry:
+                    if entry[ind[idr]] == "":
+                        entry[ind[idr]] = popravi_sumnike(el)
+                else:
+                    entry[ind[idr]] = popravi_sumnike(el)
+            if entry['CT_dir'] != '': entries.append(entry)
+    return entries
+
+
+def healthy_cases_list(dr=images_path_healthy) -> list:  # makes dict of healthy cases in same style as sick
+    cases = list()
+    ind = list()
+    with open(indices, "r") as f:
+        for line in f.readlines(): ind.append(line[:-1])
+
+    for case in os.listdir(dr):
+        # check if valid:
+        valid = True
+        for folder in os.listdir(os.path.join(dr, case)):
+            if len(os.listdir(os.path.join(dr, case, folder))) > 60:
+                valid = False
+        if not valid:
+            continue
+        key = case[:case.find(".")]
+        print(key)
+        cases.append(dict())
+
+        for ind_ in ind:
+            cases[-1][ind_] = "healthy"
+        for folder in os.listdir(os.path.join(dr, case)):
+            f_o = os.listdir(os.path.join(dr, case, folder))[0]
+            file = pydicom.read_file(os.path.join(dr, case, folder, f_o))
+            size_ = file[0x0008103E].value
+            if "4" in size_:
+                cases[-1]["PET_dir"] = os.path.join(dr, case, folder)
+                # cases[-1]["PET"] = convert_folder_to_array(os.path.join(dr, case, folder))
+            if "CT" in size_:
+                cases[-1]["CT_dir"] = os.path.join(dr, case, folder)
+                # cases[-1]["CT"] = convert_folder_to_array(os.path.join(dr, case, folder))  # KEYI SO CT_ ali PT_...
+
+    return cases
+
+
+master_list = get_csv_new()
+master_list.extend(healthy_cases_list())
+for case in master_list:
+    print(case["PET_dir"])
+    print(len(os.listdir(case["PET_dir"])))
+
+    print(case["CT_dir"])
+    print(len(os.listdir(case["CT_dir"])))
+
+
+# print(len(master_list)) 102!! YEY :D
+
+
+def make_folders_from_healthy():
+    from shutil import copy
+    zdravi_dir = "/media/leon/2tbssd/PRESERNOVA/PREŠERNOVA_ZDRAVI/"
+    for case in os.listdir(zdravi_dir):
+        for file in os.listdir(os.path.join(zdravi_dir, case)):
+            print(re.split(r'\.', string=file))
+            spl = re.split(r'\.', string=file)
+            fits_in_dir = os.path.join(zdravi_dir, case, spl[1] + "_" + spl[2])
+            # print(fits_in_dir)
+            os.makedirs(fits_in_dir, exist_ok=True)
+            copy(src=os.path.join(zdravi_dir, case, file), dst=os.path.join(fits_in_dir, file))
+            print("copied source\n%s\nto destination\n%s" % (
+                os.path.join(zdravi_dir, case, file), os.path.join(fits_in_dir, file)))
+            os.remove(os.path.join(zdravi_dir, case, file))
 
 
 def get_csv():
@@ -36,4 +140,3 @@ def get_csv():
         if patients_[p] != dict():
             patients[p] = patients_[p]
     return patients
-

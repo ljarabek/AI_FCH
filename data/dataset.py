@@ -71,7 +71,7 @@ for aaa in os.listdir(images_path_healthy):
                 pet.append(os.path.join(rt, fname))
             elif fname.startswith(peti):
                 pet.append(os.path.join(rt, fname))
-    if len(ct) == 56 and len(pet) == 56:
+    if len(ct) == 56 and len(pet) == 56: # nimajo vsi zdravi 56 rezin... eni majo 74
         ctl, petl = list(), list()
         for i in range(56):
             ctl.append("")
@@ -130,7 +130,7 @@ class PET_CT(Dataset):
 
 
     def __getitem__(self, idx):
-        if DATASET_IN_RAM and len(self.memlist)==self.__len__():
+        if DATASET_IN_RAM and len(self.memlist) == self.__len__():
             return self.memlist[idx]
         ctl = self.master_list[idx]['cts']
         petl = self.master_list[idx]['pets']

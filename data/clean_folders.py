@@ -2,7 +2,7 @@ import os
 from constants import *
 from data.CSV import get_csv
 from data.sumniki import popravi_sumnike
-from data.flist_to_array import flist_to_array
+from data.dicom_helper import flist_to_array
 
 PET_paths = list()
 CT_paths = list()
