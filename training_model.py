@@ -185,7 +185,7 @@ if __name__ == "__main__":
     # TODO: data_augmentation!! isti slice v batchu prikazujejo bajno različne anatomije!!!
     # TODO: nared da med trainingom vsakih npr. 10 batchov 5 batchov validira - dogaja se, da je po prvem batchu minimaln val_loss!!
 
-    cross_validation_fold = 15
+    cross_validation_fold = 12
 
     space = np.logspace(-1.5, -5, num=10)
     print(space)
