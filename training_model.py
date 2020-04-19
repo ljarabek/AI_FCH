@@ -20,6 +20,7 @@ import json
 import random
 import pickle
 from models.my_models import MyModel
+import numpy as np
 
 
 # model_used = resnet10(num_classes=5, activation="softmax")
@@ -27,12 +28,14 @@ from models.my_models import MyModel
 
 
 class Run():
-    def __init__(self, modeln="MyModel", val_length=10, batch_size=2, classifications_file="classifications.pkl"):
+    def __init__(self, modeln="MyModel", val_length=10, batch_size=2, classifications_file="classifications.pkl",
+                 learning_rate=3e-2):
 
         # SAMPLE FOR VALIDATION AND TEST SETS
         self.val_length = val_length  # , self.test_length = 20, 0
         self.batch_size = batch_size
         self.classifications_file = classifications_file
+        self.lr = learning_rate
 
         sample = random.sample(range(0, len(master_list)), k=self.val_length)  # + self.test_length
         # sample  = sample_by_label(master_list, val_size=self.val_length, n_min=2)
@@ -61,10 +64,12 @@ class Run():
         # self.loss_ce = nn.BCEWithLogitsLoss()  # naj bi se BCE loss uporabljal z sigmoidom, ne pa z softmax!!
 
         # oba optimizera sta kr cool :)
-        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=3e-2, weight_decay=5e-3,
+        self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=5e-3,
                                          momentum=0.9)  # works better?
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-3)  # weight_decay=5e-3, momentum=0.9)
         self.global_step = 0
+        self.val_top_loss = 1e5
+        self.train_top_loss = 1e5
 
     def _init_model(self, model_name):
         if model_name == "MyModel":
@@ -118,6 +123,7 @@ class Run():
                 classifications = pickle.load(f)
         except:
             classifications = dict()
+            classifications['val_loss'] = list()  # se itak požene na koncu, ko je že zoptimiziran..
             classifications['model_version'] = list()
             classifications['truth'] = dict()
             classifications['pred'] = dict()
@@ -128,11 +134,14 @@ class Run():
                 classifications['pred'][l] = list()
 
         self.model = self.model.eval()
+        val_loss = 0
         for ct, pet, merged, label, entry in self.val_loader:
             inp = torch.Tensor(merged.float())
             inp = inp.to(device)
             label = label.to(device)
             otpt = self.model(inp)
+            loss = self.loss_ce(otpt, label)
+            val_loss += loss.sum().detach().cpu()
             otpt = otpt.detach().cpu().numpy()
             label = label.detach().cpu().numpy()
             for b in range(otpt.shape[0]):  # for example in batch
@@ -142,13 +151,13 @@ class Run():
                 for il, l in enumerate(label_list):
                     classifications['truth'][l].append(label[b, il])
                     classifications['pred'][l].append(otpt[b, il])
-        # print(repr(classifications))
+        classifications['val_loss'].append(val_loss)
+
         with open(self.classifications_file, "wb") as f:
             pickle.dump(classifications, f)
 
     def train(self, no_epochs=10):
-        val_top_loss = 1e5
-        train_top_loss = 1e5
+
         for i in range(no_epochs):
             t0 = time()
             self.global_step += 1
@@ -156,19 +165,19 @@ class Run():
             val = self.epoch_val()
             self.writer.add_scalars(main_tag="losses", tag_scalar_dict={'train_loss': tr, "val_loss": val},
                                     global_step=self.global_step)
-            if val < val_top_loss:
+            if val < self.val_top_loss:
                 torch.save(self.model, os.path.join(self.writer.log_dir, "best_val.pth"))
-                val_top_loss = val
+                self.val_top_loss = val
                 print("saved_top_model_val")
-            if tr < train_top_loss:
+            if tr < self.train_top_loss:
                 torch.save(self.model, os.path.join(self.writer.log_dir, "best_tr.pth"))
-                train_top_loss = tr
+                self.train_top_loss = tr
                 print("saved_top_model_tr")
 
             print(f"STEP: {i} TRAINLOSS: {tr} VALLOSS {val} dt {time() - t0}")
         self.writer.close()
 
-
+from pprint import pprint
 if __name__ == "__main__":
     # run = Run()
     # run.train(50)
@@ -176,19 +185,29 @@ if __name__ == "__main__":
     # TODO: data_augmentation!! isti slice v batchu prikazujejo bajno različne anatomije!!!
     # TODO: nared da med trainingom vsakih npr. 10 batchov 5 batchov validira - dogaja se, da je po prvem batchu minimaln val_loss!!
 
-    cross_validation_fold = 20
+    cross_validation_fold = 15
 
-    d = {
-        'modeln': "MyModel",
-        'val_length': 10,
-        'batch_size': 2,
-        'classifications_file': "classifications.pkl"
-    }
-    run = Run(modeln=d['modeln'], val_length=d['val_length'], batch_size=d['batch_size'],
-              classifications_file=d['classifications_file'])
-    with open(os.path.join(run.writer.log_dir, "settings.json"), "w") as f:
-        json.dump(d, f)
-    run.train(2)
+    space = np.logspace(-1.5, -5, num=10)
+    print(space)
+    for model in ['MyModel', 'resnet10']:
+        for ids, s in enumerate(space):
+            d = {
+                'modeln': model,
+                'val_length': 10,
+                'batch_size': 2,
+                'classifications_file': "classifications_%s_%s.pkl" % (model,ids),
+                'lr': s
+            }
+            pprint(d)
+            for i in range(cross_validation_fold):
+
+                run = Run(modeln=d['modeln'], val_length=d['val_length'], batch_size=d['batch_size'],
+                          classifications_file=d['classifications_file'], learning_rate=d['lr'])
+                run.train(20)
+                run.evaluate_classification()
+                with open(os.path.join(run.writer.log_dir, "settings.json"), "w") as f:
+                    json.dump(d, f)
+
     """run = Run()
     #run.train(25)
     run.model = torch.load("./runs/Apr19_06-37-40_leon-desktop/best_val.pth")
