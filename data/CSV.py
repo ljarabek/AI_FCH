@@ -2,7 +2,6 @@ import csv
 from constants import *
 import io
 from data.sumniki import popravi_sumnike
-from data.dicom_helper import match_healthy_pet_cts
 import numpy as np
 import os
 import re
@@ -10,32 +9,16 @@ import SimpleITK as sitk
 import pydicom
 
 
-def convert_folder_to_array(sick_directory: str) -> np.ndarray:
-    # depth = len(os.listdir(sick_directory))
-    # blank = np.zeros()
-    reader = sitk.ImageSeriesReader()
-    dicom_names = reader.GetGDCMSeriesFileNames(sick_directory)
-    reader.SetFileNames(dicom_names)
-    image = reader.Execute()
-    arr = sitk.GetArrayFromImage(image)
-    arr = np.array(arr)
-    return arr
-
-
-def get_csv_new():
+def get_csv_new():  # makes csv with indices from indices variable
     entries = list()
     ind = list()
     with open(indices, "r") as f:
         for line in f.readlines(): ind.append(line[:-1])
-
-    # print(ind)
     with io.open(csv_path, newline="", encoding="utf-8") as f:  # utf encoding due to čšđžć
         reader = csv.reader(f, quotechar="|")  # delimiter=" "
-
         for row in reader:
             entry = dict()
             for idr, el in enumerate(row):
-                # print(el,idr)
                 if ind[idr] in entry:
                     if entry[ind[idr]] == "":
                         entry[ind[idr]] = popravi_sumnike(el)
@@ -45,7 +28,7 @@ def get_csv_new():
     return entries
 
 
-def healthy_cases_list(dr=images_path_healthy) -> list:  # makes dict of healthy cases in same style as sick
+def healthy_cases_list(dr=images_path_healthy) -> list:  # makes dict of healthy cases with indices from indices
     cases = list()
     ind = list()
     with open(indices, "r") as f:
@@ -60,9 +43,7 @@ def healthy_cases_list(dr=images_path_healthy) -> list:  # makes dict of healthy
         if not valid:
             continue
         key = case[:case.find(".")]
-        print(key)
         cases.append(dict())
-
         for ind_ in ind:
             cases[-1][ind_] = "healthy"
         for folder in os.listdir(os.path.join(dr, case)):
@@ -79,20 +60,16 @@ def healthy_cases_list(dr=images_path_healthy) -> list:  # makes dict of healthy
     return cases
 
 
-master_list = get_csv_new()
-master_list.extend(healthy_cases_list())
-for case in master_list:
-    print(case["PET_dir"])
-    print(len(os.listdir(case["PET_dir"])))
-
-    print(case["CT_dir"])
-    print(len(os.listdir(case["CT_dir"])))
+def get_master_list() -> list:
+    master_list = get_csv_new()
+    master_list.extend(healthy_cases_list())
+    return master_list
 
 
 # print(len(master_list)) 102!! YEY :D
 
 
-def make_folders_from_healthy():
+def make_folders_from_healthy():  # runs only once,
     from shutil import copy
     zdravi_dir = "/media/leon/2tbssd/PRESERNOVA/PREŠERNOVA_ZDRAVI/"
     for case in os.listdir(zdravi_dir):
@@ -108,7 +85,7 @@ def make_folders_from_healthy():
             os.remove(os.path.join(zdravi_dir, case, file))
 
 
-def get_csv():
+def get_csv():  # deprecated
     csv_ = list()
     with io.open(csv_path, newline="", encoding="utf-8") as f:  # utf encoding due to čšđžć
         reader = csv.reader(f, delimiter=" ", quotechar="|")

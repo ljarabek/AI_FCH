@@ -1,6 +1,5 @@
 import torch
 from torch.utils.data import Dataset
-from data.clean_folders import get_flist_from_folder, csv_with_fnames
 from argparse import ArgumentParser
 from scipy.interpolate import RectBivariateSpline
 from constants import *
@@ -8,166 +7,99 @@ import os
 import numpy as np
 import io
 import csv
+from data.CSV import get_master_list
+from data.convert_folder_to_array import convert_folder_to_array
+from data.interpolation import interpolate2d
+from data.add_label import add_label
+from data.add_images_to_list import add_images
+from data.crop_images import crop_images
 import re
 from constants import *
-
+import matplotlib.pyplot as plt
 import SimpleITK as sitk
-
-csvf = csv_with_fnames()
-
-master_list = list()
-
-# MAKE MASTER LIST --> of dictionaries
+import pickle
 
 
-DATASET_IN_RAM = True
+
+# DZ JIH MAMO LE 5!!!
+
+master_pkl_dir = "/media/leon/2tbssd/PRESERNOVA/AI_FCH/data/master.pkl"
+
+try:
+    with open(master_pkl_dir, "rb") as f:
+        # 1/0
+        settings, master_list = pickle.load(f)
+    if settings != m_list_settings:
+        i = 1 / 0
+    print("master.pkl successfully loaded")
+except:
+    print("master.pkl doesnt exist or settings mismatch")
+    print("generating new list")
+    master_list = get_master_list()
+    master_list = add_label(master_list, encoding=m_list_settings['encoding'])  # 0 1 2 3 4
+    master_list = add_images(master_list, wanted_shape_ct=m_list_settings['wanted_shape_ct'])
+    # for e in master_list:
+    #    print(e['CT'].shape)
+    #    print(e['PET'].shape)
+    master_list = crop_images(master_list, cropping=m_list_settings['cropping'])
+    # for e in master_list:
+    #    print(e['CT'].shape)
+    #    print(e['PET'].shape)
+    with open(master_pkl_dir, "wb") as f:
+        pickle.dump((m_list_settings, master_list), f)
+
+means_std_pet = list()
+means_std_ct = list()
+for e in master_list:
+    means_std_pet.append((np.mean(e['PET']), np.std(e['PET'])))
+    means_std_ct.append((np.mean(e['CT']), np.std(e['CT'])))
+
+ct_mean, ct_std = np.mean(means_std_ct, axis=0)
+pet_mean, pet_std = np.mean(means_std_pet, axis=0)
+print("mean and std calculated:")
+print("CT mean, std: %s" % np.mean(means_std_ct, axis=0))
+print("PET mean, std: %s" % np.mean(means_std_pet, axis=0))
+
+means_std_ct = np.mean(means_std_ct, axis=0)
+means_std_pet = np.mean(means_std_pet, axis=0)
 
 
-for new_id, old_id in enumerate(csvf):
-    if csvf[old_id]['cts'] == [] or csvf[old_id]['pets'] == []:
-        continue
-
-    pet = get_flist_from_folder(csvf[old_id]['pets'][0])
-    ct = get_flist_from_folder(csvf[old_id]['cts'][0])
-
-    petl = list()
-    ctl = list()
-
-    for i in range(56):
-        petl.append("")
-        ctl.append("")
-    for entry_ct in ct:
-        index = int(entry_ct[-8:-4]) - 1  # konec... 0235-0019.dcm
-        ctl[index] = entry_ct
-    for entry_pet in pet:
-        index = int(entry_pet[-8:-4]) - 1
-        petl[index] = entry_pet
-    if csvf[old_id]['histo'] in legal_labels:
-        entry = {
-            'pets': petl,
-            'cts': ctl,
-            'label': csvf[old_id]['histo'],
-            'full_entry': csvf[old_id]
-        }
-
-        master_list.append(entry)
-
-for aaa in os.listdir(images_path_healthy):
-    rt = os.path.join(images_path_healthy, aaa)
-    ct = list()
-    pet = list()
-    cti = 0
-    peti = 0
-    for fname in os.listdir(rt):
-        if fname.find("CT") != -1:
-            if cti == 0:
-                cti = fname[:fname.find("CT") + 5:]
-                ct.append(os.path.join(rt, fname))
-            elif fname.startswith(cti):
-                ct.append(os.path.join(rt, fname))
-        if fname.find("PT") != -1:
-            if peti == 0:
-                peti = fname[:fname.find("PT.") + 5:]
-                pet.append(os.path.join(rt, fname))
-            elif fname.startswith(peti):
-                pet.append(os.path.join(rt, fname))
-    if len(ct) == 56 and len(pet) == 56: # nimajo vsi zdravi 56 rezin... eni majo 74
-        ctl, petl = list(), list()
-        for i in range(56):
-            ctl.append("")
-            petl.append("")
-        for entry_ct in ct:
-            r = re.findall(r'(\.CT\.[0-9]*\.)([0-9]*)', entry_ct)[0][1]
-            r = int(r)
-            ctl[r - 1] = entry_ct
-        for entry_pet in pet:
-            r = re.findall(r'(\.PT\.[0-9]*\.)([0-9]*)', entry_pet)[0][1]
-            r = int(r)
-            petl[r - 1] = entry_pet
-        entry = {
-            'cts': ctl,
-            'pets': petl,
-            'label': 'normal'
-        }
-        master_list.append(entry)
-    # break
-
-for pat in master_list:  # one-hot ENCODING
-    l = pat['label']
-    label = np.zeros(len(label_list), dtype=np.float32)
-    for il, l_e in enumerate(label_list):
-        if l in l_e:
-            label[il] = 1.0
-    pat['label'] = label
-
-
-def interpolate(image, new_size: tuple):
-    coordinates_1 = np.arange(0, image.shape[0], 1)
-    coordinates_2 = np.arange(0, image.shape[1], 1)
-    indices = (np.linspace(0, image.shape[0], new_size[0]), np.linspace(0, image.shape[1], new_size[1]))
-    # print(indices[0].shape)
-
-    spline = RectBivariateSpline(coordinates_1, coordinates_2, image)
-
-    image = np.array(spline(indices[0], indices[1], grid=True))
-
-    return image
-
-
-class PET_CT(Dataset):
+class PET_CT_Dataset(Dataset):
     def __init__(self, master_list_=master_list, **kwargs):
-        super(PET_CT, self).__init__()
+        super(PET_CT_Dataset, self).__init__()
         self.master_list = master_list_
-        # self.ct_mean = -930.6567472957429
-        # self.ct_std = 262.7359055024721
-        # self.pet_mean = 48.90856599131051
-        # self.pet_std = 232.91971335374726
-        self.memlist= list()
-        if DATASET_IN_RAM:
-            for i in range(self.__len__()):
-                self.memlist.append(self.__getitem__(i))
-
-
 
     def __getitem__(self, idx):
-        if DATASET_IN_RAM and len(self.memlist) == self.__len__():
-            return self.memlist[idx]
-        ctl = self.master_list[idx]['cts']
-        petl = self.master_list[idx]['pets']
+        ct = self.master_list[idx]['CT']
+        pet = self.master_list[idx]['PET']
         label = self.master_list[idx]['label']
 
-        ct = list()
-        pet = list()
-        for fname in ctl:
-            image = sitk.ReadImage(fname)
-            arr = sitk.GetArrayFromImage(image)[0]
-            ct.append(arr)
-        ct = np.array(ct)
-        for fname in petl:
-            image = sitk.ReadImage(fname)
-            arr = sitk.GetArrayFromImage(image)[0]
-            if arr.shape == (400, 400):
-                arr = arr[::2, ::2]
-            arr = interpolate(arr, (ct.shape[1], ct.shape[2]))
-            arr[arr < 0] = 0.0  # before was 0.0 minimum
-            pet.append(arr)
+        ct -= means_std_ct[0]
+        ct /= means_std_ct[1]
+        ct = np.expand_dims(ct, 0)
 
-        ct = np.array(ct, dtype=np.float)[:, x_0 - x_r: x_0 + x_r, y_0 - y_r: y_0 + y_r]
-        pet = np.array(pet, dtype=np.float)[:, x_0 - x_r: x_0 + x_r, y_0 - y_r: y_0 + y_r]
-
-        ct = (ct - ct_mean) / ct_std
-        pet = (pet - pet_mean) / pet_std
-
-        ct = np.expand_dims(ct, -1)
-        pet = np.expand_dims(pet, -1)
-
-        merged = np.concatenate([ct, pet], -1)
-
-        merged = np.transpose(merged)
-        ct = np.transpose(ct)
-        pet = np.transpose(pet)
-        # print(label)
-        return ct, pet, merged, label
+        pet -= means_std_pet[0]  # - mean
+        pet /= means_std_pet[1]  # / std
+        pet = np.expand_dims(pet, 0)
+        merged = np.concatenate([ct, pet], 0)
+        # print(merged.shape)
+        #if merged.shape != (2, 48, 128, 128):
+        #    print(master_list[idx])
+        return ct, pet, merged, label, self.master_list[idx]  # must be of shape (without N) (N,Cin​,D,H,W)
 
     def __len__(self):
         return len(self.master_list)
+
+
+if __name__ == "__main__":
+    # p = PET_CT_Dataset()
+    i = 0
+    # print(merged.shape)
+    # print(label.shape)
+    # for i in range(len(p)):
+    #    ct, pet, merged, label = p[i]
+    # for i in master_list:
+    #    print(i['CT'].shape)
+    #    print(i['PET'].shape)
+
+    # TODO: proper dataset split!!

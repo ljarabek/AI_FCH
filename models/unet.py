@@ -271,33 +271,33 @@ class UNet3D(nn.Module):
         self.in_channel = in_channel
         self.n_classes = n_classes
         super(UNet3D, self).__init__()
-        self.ec0 = self.down_conv(self.in_channel, 32, bias=False, batchnorm=False)
-        self.ec1 = self.down_conv(32, 64, bias=False, batchnorm=False)
-        self.ec2 = self.down_conv(64, 64, bias=False, batchnorm=False)
-        self.ec3 = self.down_conv(64, 128, bias=False, batchnorm=False)
-        self.ec4 = self.down_conv(128, 128, bias=False, batchnorm=False)
-        self.ec5 = self.down_conv(128, 256, bias=False, batchnorm=False)
-        self.ec6 = self.down_conv(256, 256, bias=False, batchnorm=False)
-        self.ec7 = self.down_conv(256, 512, bias=False, batchnorm=False)
+        self.ec0 = self.down_conv(self.in_channel, 32, bias=True, batchnorm=False)
+        self.ec1 = self.down_conv(32, 64, bias=True, batchnorm=False)
+        self.ec2 = self.down_conv(64, 64, bias=True, batchnorm=False)
+        self.ec3 = self.down_conv(64, 128, bias=True, batchnorm=False)
+        self.ec4 = self.down_conv(128, 128, bias=True, batchnorm=False)
+        self.ec5 = self.down_conv(128, 256, bias=True, batchnorm=False)
+        self.ec6 = self.down_conv(256, 256, bias=True, batchnorm=False)
+        self.ec7 = self.down_conv(256, 512, bias=True, batchnorm=False)
 
         self.pool0 = nn.MaxPool3d(2)
         self.pool1 = nn.MaxPool3d(2)
         self.pool2 = nn.MaxPool3d(2)
 
-        self.dc9 = self.up_conv(512, 512, kernel_size=2, stride=2, bias=False)
-        self.dc8 = self.down_conv(256 + 512, 256, bias=False)
-        self.dc7 = self.down_conv(256, 256, bias=False)
-        self.dc6 = self.up_conv(256, 256, kernel_size=2, stride=2, bias=False)
-        self.dc5 = self.down_conv(128 + 256, 128, bias=False)
-        self.dc4 = self.down_conv(128, 128, bias=False)
-        self.dc3 = self.up_conv(128, 128, kernel_size=2, stride=2, bias=False)
-        self.dc2 = self.down_conv(64 + 128, 64, bias=False)
-        self.dc1 = self.down_conv(64, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.dc0 = self.down_conv(64, n_classes, kernel_size=1, stride=1, padding=0, bias=False)
+        self.dc9 = self.up_conv(512, 512, kernel_size=2, stride=2, bias=True)
+        self.dc8 = self.down_conv(256 + 512, 256, bias=True)
+        self.dc7 = self.down_conv(256, 256, bias=True)
+        self.dc6 = self.up_conv(256, 256, kernel_size=2, stride=2, bias=True)
+        self.dc5 = self.down_conv(128 + 256, 128, bias=True)
+        self.dc4 = self.down_conv(128, 128, bias=True)
+        self.dc3 = self.up_conv(128, 128, kernel_size=2, stride=2, bias=True)
+        self.dc2 = self.down_conv(64 + 128, 64, bias=True)
+        self.dc1 = self.down_conv(64, 64, kernel_size=3, stride=1, padding=1, bias=True)
+        self.dc0 = self.down_conv(64, n_classes, kernel_size=1, stride=1, padding=0, bias=True, final = True)
 
 
     def down_conv(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1,
-                bias=True, batchnorm=False):
+                bias=True, batchnorm=False, final=False):
         if batchnorm:
             layer = nn.Sequential(
                 nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
@@ -307,14 +307,26 @@ class UNet3D(nn.Module):
             layer = nn.Sequential(
                 nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
                 nn.LeakyReLU())
+        layer = nn.Sequential(
+            nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
+            nn.BatchNorm3d(out_channels),
+            nn.LeakyReLU())
+        if final:
+            layer = nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias)
         return layer
 
 
     def up_conv(self, in_channels, out_channels, kernel_size=2, stride=2, padding=0,
                 output_padding=0, bias=True):
+        #old
         layer = nn.Sequential(
             nn.ConvTranspose3d(in_channels, out_channels, kernel_size, stride=stride,
                                padding=padding, output_padding=output_padding, bias=bias),
+            nn.LeakyReLU())
+        layer = nn.Sequential(
+            nn.ConvTranspose3d(in_channels, out_channels, kernel_size, stride=stride,
+                               padding=padding, output_padding=output_padding, bias=bias),
+            nn.BatchNorm3d(out_channels),
             nn.LeakyReLU())
         return layer
 

@@ -112,17 +112,19 @@ class ResNet(nn.Module):
     def __init__(self,
                  block,
                  layers,
-                 #sample_size,
-                 #sample_duration,
+                 # sample_size,
+                 # sample_duration,
                  shortcut_type='B',
-                 num_classes=400):
+                 num_classes=5,
+                 activation="softmax"):
+        self.acivation = activation
         self.inplanes = 64
         super(ResNet, self).__init__()
         self.conv1 = nn.Conv3d(
             2,
             64,
             kernel_size=7,
-            stride=(2, 2, 1), # TODO: tu je bil problem: stride (1,2,2)
+            stride=(2, 2, 1),  # TODO: tu je bil problem: stride (1,2,2)
             padding=(3, 3, 3),
             bias=False)
         self.bn1 = nn.BatchNorm3d(64)
@@ -135,11 +137,11 @@ class ResNet(nn.Module):
             block, 256, layers[2], shortcut_type, stride=2)
         self.layer4 = self._make_layer(
             block, 512, layers[3], shortcut_type, stride=2)
-        #last_duration = int(math.ceil(sample_duration / 16))
-        #last_size = int(math.ceil(sample_size / 32))
+        # last_duration = int(math.ceil(sample_duration / 16))
+        # last_size = int(math.ceil(sample_size / 32))
         self.avgpool = nn.AvgPool3d(
-            (8, 8, 4), stride=1)
-        self.fc = nn.Linear(512, len(label_list))
+            (1, 2, 4), stride=1)  # BEFORE WAS 8,8,4  # (2, 4, 8) za
+        self.fc = nn.Linear(512, num_classes)  # for resnet10 set to 512!! 2048
         self.softmax = nn.Softmax(dim=1)
         for m in self.modules():
             if isinstance(m, nn.Conv3d):
@@ -188,6 +190,8 @@ class ResNet(nn.Module):
 
         x = x.view(x.size(0), -1)
         x = self.fc(x)
+        if self.acivation == None:
+            return x
         x = self.softmax(x)
         return x
 
