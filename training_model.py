@@ -16,6 +16,7 @@ from resnets.resnet import resnet10, resnet50
 from time import time
 import torch.nn.functional as F
 from data.sampling import sample_by_label
+import json
 import random
 import pickle
 from models.my_models import MyModel
@@ -26,11 +27,12 @@ from models.my_models import MyModel
 
 
 class Run():
-    def __init__(self):
+    def __init__(self, modeln="MyModel", val_length=10, batch_size=2, classifications_file="classifications.pkl"):
 
         # SAMPLE FOR VALIDATION AND TEST SETS
-        self.val_length = 10  # , self.test_length = 20, 0
-        self.batch_size = 2
+        self.val_length = val_length  # , self.test_length = 20, 0
+        self.batch_size = batch_size
+        self.classifications_file = classifications_file
 
         sample = random.sample(range(0, len(master_list)), k=self.val_length)  # + self.test_length
         # sample  = sample_by_label(master_list, val_size=self.val_length, n_min=2)
@@ -51,8 +53,8 @@ class Run():
         # self.test_loader = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=4, shuffle=False)
 
         self.writer = SummaryWriter()
-
-        self.model = MyModel(num_classes=5)
+        self.modeln = modeln
+        self.model = self._init_model(model_name=self.modeln)
         self.model = self.model.to(device)
 
         self.loss_ce = nn.BCELoss()
@@ -63,6 +65,14 @@ class Run():
                                          momentum=0.9)  # works better?
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-3)  # weight_decay=5e-3, momentum=0.9)
         self.global_step = 0
+
+    def _init_model(self, model_name):
+        if model_name == "MyModel":
+            return MyModel(num_classes=5)
+        if model_name == 'resnet10':
+            return resnet10(num_classes=5, activation="softmax")
+        else:
+            return None
 
     def epoch_train(self):
         self.model = self.model.train()
@@ -104,7 +114,7 @@ class Run():
         self.model = torch.load(os.path.join(self.writer.log_dir, "best_val.pth"))
         label_list = m_list_settings['encoding'][1]
         try:
-            with open("classifications.pkl", "rb") as f:
+            with open(self.classifications_file, "rb") as f:
                 classifications = pickle.load(f)
         except:
             classifications = dict()
@@ -133,7 +143,7 @@ class Run():
                     classifications['truth'][l].append(label[b, il])
                     classifications['pred'][l].append(otpt[b, il])
         # print(repr(classifications))
-        with open("classifications.pkl", "wb") as f:
+        with open(self.classifications_file, "wb") as f:
             pickle.dump(classifications, f)
 
     def train(self, no_epochs=10):
@@ -165,15 +175,25 @@ if __name__ == "__main__":
     # run.evaluate_classification()
     # TODO: data_augmentation!! isti slice v batchu prikazujejo bajno različne anatomije!!!
     # TODO: nared da med trainingom vsakih npr. 10 batchov 5 batchov validira - dogaja se, da je po prvem batchu minimaln val_loss!!
-    cross_validation_fold = 200
-    # torch.seed = 41
-    # random.seed(41)
-    #for i in range(cross_validation_fold):
-    #print(f"CROSS VALIDATION RUN: \n\n\n\n{i}\n\n\n")
-    run = Run()
+
+    cross_validation_fold = 20
+
+    d = {
+        'modeln': "MyModel",
+        'val_length': 10,
+        'batch_size': 2,
+        'classifications_file': "classifications.pkl"
+    }
+    run = Run(modeln=d['modeln'], val_length=d['val_length'], batch_size=d['batch_size'],
+              classifications_file=d['classifications_file'])
+    with open(os.path.join(run.writer.log_dir, "settings.json"), "w") as f:
+        json.dump(d, f)
+    run.train(2)
+    """run = Run()
     #run.train(25)
     run.model = torch.load("./runs/Apr19_06-37-40_leon-desktop/best_val.pth")
     for ct, pet, merged, label, _ in run.val_loader:
+        print(_)
         inp = torch.Tensor(merged.float())
         inp = inp.to(device)
         label = label.to(device)
@@ -181,4 +201,4 @@ if __name__ == "__main__":
         loss = run.loss_ce(otpt, label)
         break
     #print(run.epoch_val())
-        #run.evaluate_classification()
+        #run.evaluate_classification()"""
