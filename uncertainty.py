@@ -13,6 +13,7 @@ from data.dataset import PET_CT_Dataset, master_list, m_list_settings
 from torch.utils.data import DataLoader
 from resnets.densenet import densenet121
 from resnets.resnet import resnet10, resnet50
+from datetime import datetime
 from time import time
 import torch.nn.functional as F
 from data.sampling import sample_by_label
@@ -55,15 +56,13 @@ class Run():
                                      drop_last=False)
         # self.test_loader = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=4, shuffle=False)
 
-        self.writer = SummaryWriter()
+        self.writer = SummaryWriter(log_dir="run_test/%s"%datetime.now().strftime("%m%d%Y_%H:%M:%S")) # TODO: dodaj tle notr folder z enkodiranim časom...
         self.modeln = modeln
         self.model = self._init_model(model_name=self.modeln)
         self.model = self.model.to(device)
 
         self.loss_ce = nn.BCELoss()
-        # self.loss_ce = nn.BCEWithLogitsLoss()  # naj bi se BCE loss uporabljal z sigmoidom, ne pa z softmax!!
 
-        # oba optimizera sta kr cool :)
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=5e-3,
                                          momentum=0.9)  # works better?
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-3)  # weight_decay=5e-3, momentum=0.9)
@@ -79,20 +78,21 @@ class Run():
         else:
             return None
 
-    # TODO: implement forward function
     def forward(self, *inputs):
-        raise NotImplementedError
+        ct, pet, merged, label, entry = inputs
+        inp = torch.Tensor(merged.float())
+        inp = inp.to(device)  # no schema error!!
+        label = label.to(device)
+        otpt = self.model(inp)
+        loss = self.loss_ce(otpt, label)
+        return loss, otpt
 
     def epoch_train(self):
         self.model = self.model.train()
         epoch_loss = 0
         for ct, pet, merged, label, _ in self.train_loader:
             self.optimizer.zero_grad()
-            inp = torch.Tensor(merged.float())
-            inp = inp.to(device)  # no schema error!!
-            label = label.to(device)
-            otpt = self.model(inp)
-            loss = self.loss_ce(otpt, label)
+            loss, otpt = self.forward(ct, pet, merged, label, _)
             loss.backward()
             self.optimizer.step()
             epoch_loss += loss.sum().detach().cpu()
@@ -105,14 +105,8 @@ class Run():
         epoch_loss = 0
         log_txt = ""
         for ct, pet, merged, label, _ in self.val_loader:
-            inp = torch.Tensor(merged.float())
-            inp = inp.to(device)
-            label = label.to(device)
-            otpt = self.model(inp)
-            loss = self.loss_ce(otpt, label)
+            loss, otpt = self.forward(ct, pet, merged, label, _)
             epoch_loss += loss.sum().detach().cpu()
-            # otpt = F.sigmoid(otpt)
-
             log_txt += f'truth: \t{str(label.detach().cpu().numpy())} output: \t{str(otpt.detach().cpu().numpy())}\n'
         epoch_loss /= len(self.val_list)
         self.writer.add_text("val_", text_string=log_txt, global_step=self.global_step)
@@ -140,11 +134,7 @@ class Run():
         self.model = self.model.eval()
         val_loss = 0
         for ct, pet, merged, label, entry in self.val_loader:
-            inp = torch.Tensor(merged.float())
-            inp = inp.to(device)
-            label = label.to(device)
-            otpt = self.model(inp)
-            loss = self.loss_ce(otpt, label)
+            loss, otpt = self.forward(ct, pet, merged, label, entry)
             val_loss += loss.sum().detach().cpu()
             otpt = otpt.detach().cpu().numpy()
             label = label.detach().cpu().numpy()
@@ -161,7 +151,6 @@ class Run():
             pickle.dump(classifications, f)
 
     def train(self, no_epochs=10):
-
         for i in range(no_epochs):
             t0 = time()
             self.global_step += 1
@@ -181,7 +170,6 @@ class Run():
             print(f"STEP: {i} TRAINLOSS: {tr} VALLOSS {val} dt {time() - t0}")
         self.writer.close()
 
-
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -193,9 +181,12 @@ if __name__ == "__main__":
 
     cross_validation_fold = 12
 
-    space = np.logspace(-1.5, -5, num=10)  # RESULTS: best loss at LR=0.01!!
+    space = np.logspace(-1.5, -5, num=10)
     print(space)
-    for model in ['MyModel', 'resnet10']:
+    run = Run()
+    run.train(2)
+    run.evaluate_classification()
+    """for model in ['MyModel', 'resnet10']:
         for ids, s in enumerate(space):
             d = {
                 'modeln': model,
@@ -211,7 +202,7 @@ if __name__ == "__main__":
                 run.train(20)
                 run.evaluate_classification()
                 with open(os.path.join(run.writer.log_dir, "settings.json"), "w") as f:
-                    json.dump(d, f)
+                    json.dump(d, f)"""
 
     """run = Run()
     #run.train(25)

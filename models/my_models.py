@@ -7,7 +7,7 @@ import matplotlib
 
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from multi_slice_viewer import multi_slice_viewer, seg_viewer
+from multi_slice_viewer import multi_slice_viewer
 import torch
 
 
