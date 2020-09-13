@@ -92,8 +92,17 @@ class PET_CT_Dataset(Dataset):
 
 
 if __name__ == "__main__":
+    from collections import Counter
     # p = PET_CT_Dataset()
-    i = 0
+    print(len(master_list))
+    all = list()
+    for e in master_list:
+        h = e['histo_lokacija']
+        all.append(h)
+    print(Counter(all))
+
+    #for m in master_list:
+    #    print(m)
     # print(merged.shape)
     # print(label.shape)
     # for i in range(len(p)):

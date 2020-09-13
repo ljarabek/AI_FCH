@@ -1,20 +1,57 @@
-import data.clean_folders as cf
+import pickle
+import numpy as np
 
-csv = cf.csv_with_fnames()
 
-categories = dict()
-for pat in csv:
-    patient = csv[pat]
-    if patient['cts'] == [] or patient['pets'] == []:
-        continue
-    for category in patient:
-        attr = patient[category]
-        if category not in categories:
-            categories[category] = [attr]
-        else:
-            categories[category].append(attr)
-print(categories)
-"""import matplotlib.pyplot as plt
+
+
+"""master_pkl_dir = "/media/leon/2tbssd/PRESERNOVA/AI_FCH/data/master.pkl"
+with open(master_pkl_dir, "rb") as f:
+    # 1/0
+    settings, master_list = pickle.load(f)
+
+# print(master_list[0])
+
+locs = list()
+Ca = list()
+fosfat = list()
+iPTH = list()
+starost = list()
+for pat in master_list:
+    locs.append(pat["histo_lokacija"])
+    try:
+        Ca.append(float(pat['Ca']))
+    except:
+        pass
+    try:
+        fosfat.append(float(pat['fosfat']))
+    except:
+        pass
+    try:
+        iPTH.append(float(pat['iPTH']))
+    except:
+        pass
+    try:
+        starost.append(int(pat['starost']))
+    except:
+        pass
+
+print("Ca %s %s" % (np.mean(Ca), np.std(Ca)))
+print("fosfat %s %s" % (np.min(fosfat), np.max(fosfat)))
+print("starost %s %s" % (np.min(starost), np.max(starost)))
+print("iPTH %s %s" % (np.mean(iPTH), np.std(iPTH)))
+
+import matplotlib.pyplot as plt
+
+loc_no = dict()
+for l in locs:
+    if l not in loc_no:
+        loc_no[l] = 1
+    else:
+        loc_no[l] += 1
+print(loc_no
+      )  # plus 4 ektopični!
+
+import matplotlib.pyplot as plt
 import numpy as np
 for category in categories:
     try:
@@ -26,6 +63,6 @@ for category in categories:
         continue
     plt.hist(cat, bins=20)
     plt.title(category)
-    plt.show()"""
+    plt.show()
 
-"zaenkrat LS LZ DS!!"
+zaenkrat LS LZ DS!!"""

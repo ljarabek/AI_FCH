@@ -6,3 +6,4 @@ __pycache__/
 runs*/
 /resnets/source
 *.pkl
+/run_test/

@@ -51,14 +51,14 @@ def multi_slice_viewer(volume):
     fig.canvas.mpl_connect('key_press_event', process_key)
     plt.show()
 
-def seg_viewer(volume, segmentation):
+def seg_viewer(volume, segmentation, cmap_ = "Reds"):
     remove_keymap_conflicts({'j', 'k'})
     fig, ax = plt.subplots()
     ax.volume = volume
     ax.segmentation = segmentation
     ax.index = volume.shape[0] // 2
     ax.imshow(volume[ax.index],cmap='gray')
-    ax.imshow(segmentation[ax.index], cmap='Reds', alpha=0.2)
+    ax.imshow(segmentation[ax.index], cmap=cmap_, alpha=0.2) # prej bil Reds, za pet lahko jet
     fig.canvas.mpl_connect('key_press_event', process_key)
     plt.show()
 

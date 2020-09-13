@@ -7,7 +7,7 @@ import matplotlib
 
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
-from multi_slice_viewer import multi_slice_viewer
+import multi_slice_viewer.multi_slice_viewer
 import torch
 
 
@@ -31,11 +31,25 @@ class MyModel(nn.Module):
         x1 = self.unet(x)
         x1 = self.activation(x1) + 1.
         show_att = x1.cpu().detach().numpy()
+
+
+        # plt.imshow(show_att[1,0,5])
+        # plt.imshow(show_input[1, 0, 5], alpha=0.2, cmap="Greys")
+        # plt.show()
         ones = torch.ones_like(x1)
         x1 = torch.cat([ones, x1], 1)  # concatenate along channel dimension, where
 
         x_input = x1 * x  # with modified PET
         x_ = x_input.cpu().detach().numpy()
+
+        #Najprej poišči na PET
+        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_input[1, 1], cmap_="jet")
+
+        #Prikaži masko
+        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_att[1, 0])
+
+        #Maskiran PET
+        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], x_[1, 1], cmap_="jet")
         # seg_viewer(x_[0,0], x_[0,1])#x_[0,1])
         # plt.imshow(show_input[0,0,0], cmap="Greys_r")
         # plt.imshow(x_[0,1,0], alpha=0.5)

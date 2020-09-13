@@ -20,6 +20,10 @@ from data.sampling import sample_by_label
 import json
 import random
 import pickle
+from argparse import ArgumentParser
+from models.unet import UNet3D
+# models.unet.U Net_alternative ALTERNATIVE HAS SIGMOID ACTIVATION!!!
+
 from models.my_models import MyModel
 import numpy as np
 
@@ -56,7 +60,8 @@ class Run():
                                      drop_last=False)
         # self.test_loader = DataLoader(self.test_dataset, batch_size=self.batch_size, num_workers=4, shuffle=False)
 
-        self.writer = SummaryWriter(log_dir="run_test/%s"%datetime.now().strftime("%m%d%Y_%H:%M:%S")) # TODO: dodaj tle notr folder z enkodiranim časom...
+        self.writer = SummaryWriter(log_dir="run_test/%s" % datetime.now().strftime(
+            "%m%d%Y_%H:%M:%S"))  # TODO: dodaj tle notr folder z enkodiranim časom...
         self.modeln = modeln
         self.model = self._init_model(model_name=self.modeln)
         self.model = self.model.to(device)
@@ -71,10 +76,12 @@ class Run():
         self.train_top_loss = 1e5
 
     def _init_model(self, model_name):
-        if model_name == "MyModel":
+        if model_name.lower() == "mymodel":
             return MyModel(num_classes=5)
-        if model_name == 'resnet10':
+        if model_name.lower() == 'resnet10':
             return resnet10(num_classes=5, activation="softmax")
+        if model_name.lower() == 'interval_nn':
+            return UNet3D(in_channel=2, n_classes=6)
         else:
             return None
 
@@ -170,6 +177,10 @@ class Run():
             print(f"STEP: {i} TRAINLOSS: {tr} VALLOSS {val} dt {time() - t0}")
         self.writer.close()
 
+
+
+
+
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -181,9 +192,17 @@ if __name__ == "__main__":
 
     cross_validation_fold = 12
 
+    args = ArgumentParser()
+
+    args.add_argument("--model_name", type=str, default="interval_nn")  # interval_nn, mymodel, resnet10
+    args.add_argument("--val_len", type=int, default=10)  # val set size
+    args.add_argument("--batch_size", type=int, default=2) # batch size
+    args.add_argument("--classifications_file", type=str, default="classifications.pkl") # where to save results
+
+    args.parse_args()
     space = np.logspace(-1.5, -5, num=10)
     print(space)
-    run = Run()
+    run = Run(modeln="UNet")
     run.train(2)
     run.evaluate_classification()
     """for model in ['MyModel', 'resnet10']:

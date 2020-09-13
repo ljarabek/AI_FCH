@@ -129,7 +129,7 @@ for i_file, file in enumerate(os.listdir(".")):
         with open(eval_dir + "metrics.json", "w") as f:
             json.dump(metrics, f)"""
 
-"""r = "runs_grid_search"
+r = "runs_grid_search"
 
 # for file in os.listdir(r):
 #    if file.startswith("classifications"):
@@ -140,6 +140,7 @@ ct_list= dict()
 for model_i, file in enumerate(flist):
     classifications = pickle.load(open(os.path.join(r, file), "rb"))
     print(file)
+    print(classifications['model_version'])
     for key in classifications:
         print(key)
     model_preformance_ct = dict()
@@ -176,7 +177,9 @@ for model_i, file in enumerate(flist):
         #print(model_preformance_ct)
         #print(truth_no,pred_no)
         #print(p_positive,t_positive)
-    print(lc)"""
+    print(lc)
+
+
 
 """r = "runs_grid_search"
 to_plot = dict()
@@ -199,10 +202,18 @@ for i in range(10):
     print("resnet10", nl["classifications_resnet10_%s.pkl" % i])
     print(to_plot["classifications_resnet10_%s.pkl" % i], sum(
         [to_plot["classifications_resnet10_%s.pkl" % i][label] for label in
-         to_plot["classifications_resnet10_%s.pkl" % i]]))"""
+         to_plot["classifications_resnet10_%s.pkl" % i]]))
 from data.dataset import master_list
 
 
 for k in master_list:
     print(k['ime'])
+
     #print(k['letnik'])
+import pickle
+
+with open("classifications_best_MyModel.pkl", "rb") as f:
+    l = pickle.load(f)
+
+for e in l:
+    print(e)"""

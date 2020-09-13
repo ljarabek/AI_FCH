@@ -3,6 +3,10 @@ import torch.nn as nn
 from torch.nn import Module
 import torch.nn.functional as F
 
+UNet_alternative = lambda in_, out_: torch.hub.load('mateuszbuda/brain-segmentation-pytorch', 'unet',
+                                                    in_channels=in_, out_channels=out_, init_features=32,
+                                                    pretrained=False)
+
 
 class NoPoolASPP(Module):
     """
@@ -18,6 +22,7 @@ class NoPoolASPP(Module):
         Nature Scientific Reports link:
         https://www.nature.com/articles/s41598-018-24304-3
     """
+
     def __init__(self, drop_rate=0.4, bn_momentum=0.1,
                  base_num_filters=64):
         super().__init__()
@@ -77,13 +82,13 @@ class NoPoolASPP(Module):
         self.branch5b_drop = nn.Dropout2d(drop_rate)
 
         self.concat_drop = nn.Dropout2d(drop_rate)
-        self.concat_bn = nn.BatchNorm2d(6*base_num_filters, momentum=bn_momentum)
+        self.concat_bn = nn.BatchNorm2d(6 * base_num_filters, momentum=bn_momentum)
 
-        self.amort = nn.Conv2d(6*base_num_filters, base_num_filters*2, kernel_size=1)
-        self.amort_bn = nn.BatchNorm2d(base_num_filters*2, momentum=bn_momentum)
+        self.amort = nn.Conv2d(6 * base_num_filters, base_num_filters * 2, kernel_size=1)
+        self.amort_bn = nn.BatchNorm2d(base_num_filters * 2, momentum=bn_momentum)
         self.amort_drop = nn.Dropout2d(drop_rate)
 
-        self.prediction = nn.Conv2d(base_num_filters*2, 1, kernel_size=1)
+        self.prediction = nn.Conv2d(base_num_filters * 2, 1, kernel_size=1)
 
     def forward(self, x):
         """Model forward pass.
@@ -210,10 +215,11 @@ class Unet(Module):
         Networks for Biomedical Image Segmentation
         ArXiv link: https://arxiv.org/abs/1505.04597
     """
+
     def __init__(self, drop_rate=0.4, bn_momentum=0.1):
         super(Unet, self).__init__()
 
-        #Downsampling path
+        # Downsampling path
         self.conv1 = DownConv(1, 64, drop_rate, bn_momentum)
         self.mp1 = nn.MaxPool2d(2)
 
@@ -267,6 +273,7 @@ class UNet3D(nn.Module):
         Segmentation from Sparse Annotation
         ArXiv link: https://arxiv.org/pdf/1606.06650.pdf
     """
+
     def __init__(self, in_channel, n_classes):
         self.in_channel = in_channel
         self.n_classes = n_classes
@@ -293,11 +300,10 @@ class UNet3D(nn.Module):
         self.dc3 = self.up_conv(128, 128, kernel_size=2, stride=2, bias=True)
         self.dc2 = self.down_conv(64 + 128, 64, bias=True)
         self.dc1 = self.down_conv(64, 64, kernel_size=3, stride=1, padding=1, bias=True)
-        self.dc0 = self.down_conv(64, n_classes, kernel_size=1, stride=1, padding=0, bias=True, final = True)
-
+        self.dc0 = self.down_conv(64, n_classes, kernel_size=1, stride=1, padding=0, bias=True, final=True)
 
     def down_conv(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1,
-                bias=True, batchnorm=False, final=False):
+                  bias=True, batchnorm=False, final=False):
         if batchnorm:
             layer = nn.Sequential(
                 nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias),
@@ -315,10 +321,9 @@ class UNet3D(nn.Module):
             layer = nn.Conv3d(in_channels, out_channels, kernel_size, stride=stride, padding=padding, bias=bias)
         return layer
 
-
     def up_conv(self, in_channels, out_channels, kernel_size=2, stride=2, padding=0,
                 output_padding=0, bias=True):
-        #old
+        # old
         layer = nn.Sequential(
             nn.ConvTranspose3d(in_channels, out_channels, kernel_size, stride=stride,
                                padding=padding, output_padding=output_padding, bias=bias),
@@ -371,6 +376,3 @@ class UNet3D(nn.Module):
 
         d0 = self.dc0(d1)
         return d0
-
-
-
