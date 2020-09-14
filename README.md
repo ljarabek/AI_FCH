@@ -1,4 +1,5 @@
 Izvorna koda za presernovo nalogo: 
+
 ##Uporaba globokega ucenja s konvolucijskimi nevronskimi mrezami pri nuklearno-medicinski diagnostiki prekomerno delujocega tkiva obscitnic
 
 ###Navodila za uporabo:
