@@ -12,6 +12,6 @@ m_list_settings = {'encoding': ('histo_lokacija', ["DS", "DZ", "LS", "LZ", "heal
                    'cropping': ((39, 16), (100, 32), (100, 32))}
                                         #  drug element v tuple "encoding" so imena,
                                         #  ki so v histo_lokacija stolpcu v csv
-                                        #  wanted shape - oblika koncne slike ki je vhod v model,
+                                        #  wanted shape CT - oblika PET, na katero se interpolira CT,
                                         #  cropping - izrez slike od kod do kod, na vsaki od treh koordinat
 
