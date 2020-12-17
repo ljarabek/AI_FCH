@@ -7,3 +7,5 @@ runs*/
 /resnets/source
 *.pkl
 /run_test/
+/runs_unceirtanty_model/
+*pth

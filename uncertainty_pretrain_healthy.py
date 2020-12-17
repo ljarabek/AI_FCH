@@ -24,8 +24,10 @@ from argparse import ArgumentParser
 from models.unet import UNet3D
 # models.unet.U Net_alternative ALTERNATIVE HAS SIGMOID ACTIVATION!!!
 
+from models import unet_128i
 from models.my_models import MyModel
 import numpy as np
+from multi_slice_viewer.multi_slice_viewer import seg_viewer, multi_slice_viewer
 
 
 # model_used = resnet10(num_classes=5, activation="softmax")
@@ -41,7 +43,8 @@ class Run():
         self.batch_size = batch_size
         self.classifications_file = classifications_file
         self.lr = learning_rate
-
+        master_list_ = [d for d in master_list if d['histo_lokacija'] == "healthy"]  # we dont use this selects healthy!!
+        print(len(master_list_))
         sample = random.sample(range(0, len(master_list)), k=self.val_length)  # + self.test_length
         # sample  = sample_by_label(master_list, val_size=self.val_length, n_min=2)
         # self.test_list = [e for i, e in enumerate(master_list) if i in sample[self.val_length:]]
@@ -62,18 +65,44 @@ class Run():
 
         self.writer = SummaryWriter(log_dir="run_test/%s" % datetime.now().strftime(
             "%m%d%Y_%H:%M:%S"))  # TODO: dodaj tle notr folder z enkodiranim časom...
+
         self.modeln = modeln
-        self.model = self._init_model(model_name=self.modeln)
+        self.model = self._init_model("LeonE___")  # TODO self._init_model(model_name=self.modeln)
         self.model = self.model.to(device)
 
-        self.loss_ce = nn.BCELoss()
-
+        self.loss_ce = nn.MSELoss()
+        self.loss = self.INN_loss
         self.optimizer = torch.optim.SGD(self.model.parameters(), lr=self.lr, weight_decay=5e-3,
                                          momentum=0.9)  # works better?
         # self.optimizer = torch.optim.Adam(self.model.parameters(), lr=3e-3)  # weight_decay=5e-3, momentum=0.9)
         self.global_step = 0
         self.val_top_loss = 1e5
         self.train_top_loss = 1e5
+
+    def INN_loss(self, otpt, real, tightness=0.1,
+                 mean_loss_weight=0.1, base_loss_scalar = 1):  # 3 channel output - low, mid, max;; NCHWD format
+        # real format NHWD (C=1)!
+        low = otpt[:, 0]
+        mid = otpt[:, 1]
+        high = otpt[:, 2]
+
+        mid = torch.unsqueeze(mid, dim=1).to(device)
+        zero = torch.zeros_like(real).to(device)
+        # tightness = torch.tensor(tightness).to(device)
+        # mean_loss_weight = torch.tensor(mean_loss_weight).to(device)
+        # a = torch.max(torch.sub(real, high).to(device), other=zero).to(device)
+
+        loss = torch.pow(torch.max(real - high, other=zero).to(device), exponent=2).to(device) + \
+               torch.pow(torch.max(low - real, zero), 2)
+        loss *= base_loss_scalar
+        #print("Lol")
+        #print(loss.mean())
+        loss += tightness * (high - low)
+        #print(loss.mean())
+        loss += mean_loss_weight * self.loss_ce(mid.double(), real.double())
+        #print(loss.mean())
+        loss = loss.mean()
+        return loss
 
     def _init_model(self, model_name):
         if model_name.lower() == "mymodel":
@@ -82,16 +111,24 @@ class Run():
             return resnet10(num_classes=5, activation="softmax")
         if model_name.lower() == 'interval_nn':
             return UNet3D(in_channel=2, n_classes=6)
+        if model_name.lower() == "leone___":
+            return unet_128i.Simply3DUnet(num_in_channels=1, num_out_channels=3, depth=3, init_feature_size=32, bn=True)
         else:
             return None
 
     def forward(self, *inputs):
         ct, pet, merged, label, entry = inputs
-        inp = torch.Tensor(merged.float())
+        inp = torch.Tensor(ct.float())
         inp = inp.to(device)  # no schema error!!
         label = label.to(device)
+        target = torch.Tensor(pet.float()).to(device)
+        self.model = self.model.to(device)
         otpt = self.model(inp)
-        loss = self.loss_ce(otpt, label)
+        # loss = self.loss_ce(otpt, label)
+        # pet = pet.to(device)
+        # loss = self.loss_ce(otpt.double(), target.double())
+        loss = self.loss(otpt.double(), target.double())
+        # self.writer.add_graph(model=self.model, input_to_model=inp, verbose=True)
         return loss, otpt
 
     def epoch_train(self):
@@ -102,6 +139,7 @@ class Run():
             loss, otpt = self.forward(ct, pet, merged, label, _)
             loss.backward()
             self.optimizer.step()
+            print(loss)
             epoch_loss += loss.sum().detach().cpu()
         epoch_loss /= len(self.train_list)
         self.writer.add_scalar("train_loss", epoch_loss, global_step=self.global_step)
@@ -116,7 +154,7 @@ class Run():
             epoch_loss += loss.sum().detach().cpu()
             log_txt += f'truth: \t{str(label.detach().cpu().numpy())} output: \t{str(otpt.detach().cpu().numpy())}\n'
         epoch_loss /= len(self.val_list)
-        self.writer.add_text("val_", text_string=log_txt, global_step=self.global_step)
+        # self.writer.add_text("val_", text_string=log_txt, global_step=self.global_step)
         self.writer.add_scalar("val_loss", epoch_loss, global_step=self.global_step)
         return epoch_loss
 
@@ -178,9 +216,6 @@ class Run():
         self.writer.close()
 
 
-
-
-
 from pprint import pprint
 
 if __name__ == "__main__":
@@ -196,43 +231,30 @@ if __name__ == "__main__":
 
     args.add_argument("--model_name", type=str, default="interval_nn")  # interval_nn, mymodel, resnet10
     args.add_argument("--val_len", type=int, default=10)  # val set size
-    args.add_argument("--batch_size", type=int, default=2) # batch size
-    args.add_argument("--classifications_file", type=str, default="classifications.pkl") # where to save results
+    args.add_argument("--batch_size", type=int, default=2)  # batch size
+    args.add_argument("--classifications_file", type=str, default="classifications.pkl")  # where to save results
 
     args.parse_args()
     space = np.logspace(-1.5, -5, num=10)
     print(space)
-    run = Run(modeln="UNet")
-    run.train(2)
-    run.evaluate_classification()
-    """for model in ['MyModel', 'resnet10']:
-        for ids, s in enumerate(space):
-            d = {
-                'modeln': model,
-                'val_length': 10,
-                'batch_size': 2,
-                'classifications_file': "classifications_%s_%s.pkl" % (model, ids),
-                'lr': s
-            }
-            pprint(d)
-            for i in range(cross_validation_fold):
-                run = Run(modeln=d['modeln'], val_length=d['val_length'], batch_size=d['batch_size'],
-                          classifications_file=d['classifications_file'], learning_rate=d['lr'])
-                run.train(20)
-                run.evaluate_classification()
-                with open(os.path.join(run.writer.log_dir, "settings.json"), "w") as f:
-                    json.dump(d, f)"""
 
-    """run = Run()
-    #run.train(25)
-    run.model = torch.load("./runs/Apr19_06-37-40_leon-desktop/best_val.pth")
+    run = torch.load("test_run.pth")
+    run.model = torch.load("/media/leon/2tbssd/PRESERNOVA/AI_FCH/run_test/10122020_16:07:17/best_val.pth")
     for ct, pet, merged, label, _ in run.val_loader:
-        print(_)
-        inp = torch.Tensor(merged.float())
+        print(_['ime'],_['priimek'], _['histo_lokacija'], _['histologija'], _['SGD/MGD'], _['CT_dir'])
+        inp = torch.Tensor(ct.float())
         inp = inp.to(device)
-        label = label.to(device)
+        target = torch.Tensor(pet.float()).to(device)
         otpt = run.model(inp)
-        loss = run.loss_ce(otpt, label)
-        break
-    #print(run.epoch_val())
-        #run.evaluate_classification()"""
+        loss = run.loss_ce(otpt, target)
+        seg_viewer(ct[0, 0].cpu().detach().numpy(),
+                   F.relu((pet[0, 0].cpu().detach() - otpt[0, 2].cpu().detach())))
+        seg_viewer(ct[0, 0].cpu().detach().numpy(),pet[0, 0].cpu().detach().numpy(), cmap_ = "jet")
+    # run = Run(modeln="UNet")
+    # ##run.epoch_train()
+    # torch.save(run.model, "_test.pth")
+    # run.train(25)
+    # torch.save(run.model, "_test.pth")
+    # torch.save(run, "test_run.pth")
+
+    #run.evaluate_classification()
