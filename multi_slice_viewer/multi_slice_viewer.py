@@ -31,6 +31,7 @@ def previous_slice(ax):
     ax.index = (ax.index - 1) % volume.shape[0]  # wrap around using %
     ax.images[0].set_array(volume[ax.index])
     ax.images[1].set_array(segmentation[ax.index]) # TODO: uncomment this for segmentation!
+    #ax.title(ax.index)
 
 
 def next_slice(ax):
@@ -39,6 +40,7 @@ def next_slice(ax):
     ax.index = (ax.index + 1) % volume.shape[0]
     ax.images[0].set_array(volume[ax.index])
     ax.images[1].set_array(segmentation[ax.index])
+    #ax.title(ax.index)
 
 
 #sprejeme 3D numpy array in prikaze sliko (s tipkama J in K se pomikas skozi slice)
@@ -59,6 +61,7 @@ def seg_viewer(volume, segmentation, cmap_ = "Reds"):
     ax.index = volume.shape[0] // 2
     ax.imshow(volume[ax.index],cmap='gray')
     ax.imshow(segmentation[ax.index], cmap=cmap_, alpha=0.2) # prej bil Reds, za pet lahko jet
+    #ax.title = str(ax.index)
     fig.canvas.mpl_connect('key_press_event', process_key)
     plt.show()
 
