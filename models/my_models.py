@@ -4,11 +4,16 @@ import torch.functional as F
 from resnets.resnet import resnet10
 import numpy as np
 import matplotlib
+import os
+from constants import *
 
 matplotlib.use('Qt5Agg')
 import matplotlib.pyplot as plt
 import multi_slice_viewer.multi_slice_viewer
 import torch
+
+
+
 
 
 class MyModel(nn.Module):
@@ -32,7 +37,6 @@ class MyModel(nn.Module):
         x1 = self.activation(x1) + 1.
         show_att = x1.cpu().detach().numpy()
 
-
         # plt.imshow(show_att[1,0,5])
         # plt.imshow(show_input[1, 0, 5], alpha=0.2, cmap="Greys")
         # plt.show()
@@ -42,14 +46,15 @@ class MyModel(nn.Module):
         x_input = x1 * x  # with modified PET
         x_ = x_input.cpu().detach().numpy()
 
-        #Najprej poišči na PET
-        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_input[1, 1], cmap_="jet")
+        # Najprej poišči na PET
+        # multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_input[1, 1], cmap_="jet")
 
-        #Prikaži masko
-        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_att[1, 0])
+        # Prikaži masko
+        # multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], show_att[1, 0])
 
-        #Maskiran PET
-        multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], x_[1, 1], cmap_="jet")
+        # Maskiran PET
+        # multi_slice_viewer.multi_slice_viewer.seg_viewer(show_input[1, 0], x_[1, 1], cmap_="jet")
+
         # seg_viewer(x_[0,0], x_[0,1])#x_[0,1])
         # plt.imshow(show_input[0,0,0], cmap="Greys_r")
         # plt.imshow(x_[0,1,0], alpha=0.5)
@@ -59,7 +64,16 @@ class MyModel(nn.Module):
         # plt.imshow(x_[0, 1, slice_to_show], alpha=0.3)
         # plt.show()
         # plt.close("all")
+
         classified = self.classifier(x_input)
+
+        global global_count
+        global_count+=1
+        np.save(os.path.join("/media/leon/2tbssd/PRESERNOVA/AI_FCH/outputs_", "input_{}.npy".format(global_count)), show_input)
+        np.save(os.path.join("/media/leon/2tbssd/PRESERNOVA/AI_FCH/outputs_", "att_{}.npy".format(global_count)), show_att)
+        np.save(os.path.join("/media/leon/2tbssd/PRESERNOVA/AI_FCH/outputs_", "weighted_{}.npy".format(global_count)), x_)
+        np.save(os.path.join("/media/leon/2tbssd/PRESERNOVA/AI_FCH/outputs_", "output_{}.npy".format(global_count)), classified.cpu().detach().numpy())
+
         return classified  # , ()
 
 

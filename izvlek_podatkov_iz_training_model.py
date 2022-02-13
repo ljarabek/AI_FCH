@@ -24,6 +24,8 @@ import numpy as np
 
 random.seed(42)
 torch.manual_seed(42)
+
+
 # model_used = resnet10(num_classes=5, activation="softmax")
 # model_used = MyModel
 
@@ -235,22 +237,26 @@ if __name__ == "__main__":
     run.model = torch.load(model_path)
 
     all_ = list()
-    for inp_ in run.train_loader:
+    lokacije = list()
+    from itertools import chain
+    for inp_ in chain(run.train_loader, run.val_loader):
         all_.append(inp_)
-    ct, pet, merged, label, _ = all_[2]  # 2 je vreji
-    print(_)
-    inp = torch.Tensor(merged.float())
-    inp = inp.to(device)
-    otpt = run.model(inp)
+        ct, pet, merged, label, _ = inp_  # 2 je vreji
+        lokacije.append(_["histo_lokacija"])
+        inp = torch.Tensor(merged.float())
+        inp = inp.to(device)
+        otpt = run.model(inp)
 
-    print(otpt)
+    np.save(os.path.join("/media/leon/2tbssd/PRESERNOVA/AI_FCH/outputs_", "histologija_vseh.npy".format(global_count)),
+            np.array(lokacije))
 
-    #space = np.logspace(-1.5, -5, num=10)  # RESULTS: best loss at LR=0.01!!
-    #print(space)
-    #for i,s in enumerate(space):
+
+    # space = np.logspace(-1.5, -5, num=10)  # RESULTS: best loss at LR=0.01!!
+    # print(space)
+    # for i,s in enumerate(space):
     #    print(i, np.log10(s))
-    #print(space)
-    #for model in ['MyModel', 'resnet10']:
+    # print(space)
+    # for model in ['MyModel', 'resnet10']:
     #    for ids, s in enumerate(space):
     #        d = {
     #            'modeln': model,

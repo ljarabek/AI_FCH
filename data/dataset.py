@@ -23,7 +23,7 @@ import pickle
 
 # DZ JIH MAMO LE 5!!!
 
-master_pkl_dir = "/media/leon/2tbssd/PRESERNOVA/AI_FCH/data/master.pkl"
+
 
 try:
     with open(master_pkl_dir, "rb") as f:

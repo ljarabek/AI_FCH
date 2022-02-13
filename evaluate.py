@@ -129,57 +129,65 @@ for i_file, file in enumerate(os.listdir(".")):
         with open(eval_dir + "metrics.json", "w") as f:
             json.dump(metrics, f)"""
 
-r = "runs_grid_search"
+r = "."  # runs_grid_search"
 
 # for file in os.listdir(r):
 #    if file.startswith("classifications"):
-flist = ["classifications_MyModel_1.pkl", "classifications_resnet10_1.pkl"]
+# flist = ["classifications_MyModel_1.pkl", "classifications_resnet10_1.pkl"]
+flist = ["classifications_best_resnet10.pkl", "classifications_best_MyModel.pkl"]
+# master_list = list(["ct_dir", "truth", "model_0", "model_1"])
+ct_list = dict()
 
-master_list = list(["ct_dir", "truth", "model_0", "model_1"])
-ct_list= dict()
+used_ids = [[], []]
+
 for model_i, file in enumerate(flist):
     classifications = pickle.load(open(os.path.join(r, file), "rb"))
-    print(file)
-    print(classifications['model_version'])
+    # print(file)
+    # print(classifications['model_version'])
     for key in classifications:
         print(key)
     model_preformance_ct = dict()
-    lc = {'FP': 0, 'TP': 0, 'FN': 0, 'TN': 0}
-    for ex_i, truth in enumerate(classifications['truth']['DS']):
-        #if classifications['CT_dirs'][ex_i] not in ct_list and model_i==0:
-        preds = [x for x in [classifications['pred'][label_][ex_i] for label_ in classifications['pred']]]
-        truths = [x for x in [classifications['truth'][label_][ex_i] for label_ in classifications['truth']]]
-        truth_no = truths.index(max(truths))
 
-        # ZDRAVI:
-        if truth_no==4:
-            p_positive = False
-        else:
-            p_positive=True
+    for I_N, n in enumerate(["DS", "DZ", "LS", "LZ", "healthy"]):
+        samples = 0
+        lc = {'FP': 0, 'TP': 0, 'FN': 0, 'TN': 0}
+        for ex_i, truth in enumerate(classifications['truth']['DS']):
+            # if classifications['CT_dirs'][ex_i] not in ct_list and model_i==0:
+            preds = [x for x in [classifications['pred'][label_][ex_i] for label_ in classifications['pred']]]
+            truths = [x for x in [classifications['truth'][label_][ex_i] for label_ in classifications['truth']]]
+            truth_no = truths.index(max(truths))
+            # ZDRAVI: OBRATNO!!
+            if truth_no == I_N:
+                p_positive = True
+                samples += 1
+            else:
+                p_positive = False
 
-        preds_ = list()
-        pred_no = preds.index(max(preds))
-        if pred_no==4: t_positive = False
-        else: t_positive = True
+            preds_ = list()
+            pred_no = preds.index(max(preds))
+            if pred_no == I_N:
+                t_positive = True
+            else:
+                t_positive = False
 
-        #if classifications['CT_dirs'][ex_i][0] not in model_preformance_ct:
-        #    model_preformance_ct[classifications['CT_dirs'][ex_i][0]] = (int(p_positive), int(t_positive))
-        if p_positive and t_positive:
-            lc["TP"]+=1
-        elif not p_positive and t_positive:
-            lc["FP"]+=1
-        elif p_positive and not t_positive:
-            lc['FN'] +=1
-        elif not p_positive and not t_positive:
-            lc['TN']+=1
-        else:
-            print("ERROR")
-        #print(model_preformance_ct)
-        #print(truth_no,pred_no)
-        #print(p_positive,t_positive)
-    print(lc)
-
-
+            # if classifications['CT_dirs'][ex_i][0] not in model_preformance_ct:
+            #    model_preformance_ct[classifications['CT_dirs'][ex_i][0]] = (int(p_positive), int(t_positive))
+            if p_positive and t_positive:
+                lc["TP"] += 1
+            elif not p_positive and t_positive:
+                lc["FP"] += 1
+            elif p_positive and not t_positive:
+                lc['FN'] += 1
+            elif not p_positive and not t_positive:
+                lc['TN'] += 1
+            else:
+                print("ERROR")
+            # print(model_preformance_ct)
+            # print(truth_no,pred_no)
+            # print(p_positive,t_positive)
+        print("%s:" % n)
+        print(file, lc, samples)
+        print()
 
 """r = "runs_grid_search"
 to_plot = dict()
